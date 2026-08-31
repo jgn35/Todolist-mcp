@@ -4,9 +4,8 @@ Domain Entities
 Pure Python entities with no external dependencies.
 """
 
-from enum import Enum
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 from uuid import UUID, uuid4
 
 
@@ -27,7 +26,7 @@ class TaskStatus(Enum):
 class Task:
     """
     Task entity representing a user's task.
-    
+
     Attributes:
         id: Unique task identifier (UUID v4)
         title: Task title
@@ -38,17 +37,17 @@ class Task:
         created_at: Creation timestamp
         updated_at: Last update timestamp
     """
-    
+
     def __init__(
         self,
         title: str,
-        description: Optional[str] = None,
-        due_date: Optional[str] = None,
-        priority: Optional[Priority] = None,
-        status: Optional[TaskStatus] = None,
-        task_id: Optional[UUID] = None,
-        created_at: Optional[str] = None,
-        updated_at: Optional[str] = None,
+        description: str | None = None,
+        due_date: str | None = None,
+        priority: Priority | None = None,
+        status: TaskStatus | None = None,
+        task_id: UUID | None = None,
+        created_at: str | None = None,
+        updated_at: str | None = None,
     ):
         self.id = task_id if task_id else uuid4()
         self.title = title
@@ -58,12 +57,12 @@ class Task:
         self.status = status if status else TaskStatus.PENDING
         self.created_at = created_at if created_at else self._get_current_timestamp()
         self.updated_at = updated_at if updated_at else self.created_at
-    
+
     @staticmethod
     def _get_current_timestamp() -> str:
         """Get current timestamp in local timezone format."""
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     def to_dict(self) -> dict:
         """Convert task to dictionary representation."""
         return {
@@ -76,7 +75,7 @@ class Task:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "Task":
         """Create a Task from dictionary data."""
@@ -90,14 +89,14 @@ class Task:
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
-    
+
     def update(
         self,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        due_date: Optional[str] = None,
-        priority: Optional[Priority] = None,
-        status: Optional[TaskStatus] = None,
+        title: str | None = None,
+        description: str | None = None,
+        due_date: str | None = None,
+        priority: Priority | None = None,
+        status: TaskStatus | None = None,
     ) -> None:
         """Update task attributes."""
         if title is not None:
@@ -111,12 +110,12 @@ class Task:
         if status is not None:
             self.status = status
         self.updated_at = self._get_current_timestamp()
-    
+
     def mark_completed(self) -> None:
         """Mark task as completed."""
         self.status = TaskStatus.COMPLETED
         self.updated_at = self._get_current_timestamp()
-    
+
     def mark_cancelled(self) -> None:
         """Mark task as cancelled."""
         self.status = TaskStatus.CANCELLED
