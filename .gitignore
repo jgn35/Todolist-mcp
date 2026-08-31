@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# BMAD Method
+_bmad-output/
+_bmad/custom/
+_bmad/config.user.toml
+.claude/
