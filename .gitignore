@@ -218,7 +218,9 @@ __marimo__/
 .streamlit/secrets.toml
 
 # BMAD Method (Mistral Vibe)
-_bmad-output/
+# Note: _bmad-output/planning-artifacts/ is committed for PRD and Architecture
+_bmad-output/*
+!_bmad-output/planning-artifacts/
 _bmad/custom/
 _bmad/config.user.toml
 .agents/
