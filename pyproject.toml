@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "todolist-mcp"
+version = "0.1.0"
+description = "MCP server for task management"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "jgn35", email = "jgn35@users.noreply.github.com" }
+]
+dependencies = [
+    "fastmcp",
+    "sqlalchemy",
+    "aiosqlite",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pyright",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+todolist-mcp = "todolist_mcp:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
