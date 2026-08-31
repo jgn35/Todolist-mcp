@@ -217,8 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# BMAD Method
+# BMAD Method (Mistral Vibe)
 _bmad-output/
 _bmad/custom/
 _bmad/config.user.toml
-.claude/
+.agents/

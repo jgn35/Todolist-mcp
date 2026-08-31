@@ -1,21 +1,21 @@
 installation:
   version: 6.11.0
-  installDate: 2026-08-31T12:29:23.061Z
-  lastUpdated: 2026-08-31T12:29:23.061Z
+  installDate: 2026-08-31T12:54:03.600Z
+  lastUpdated: 2026-08-31T12:54:03.600Z
 modules:
   - name: core
     version: 6.11.0
-    installDate: 2026-08-31T12:29:22.979Z
-    lastUpdated: 2026-08-31T12:29:23.060Z
+    installDate: 2026-08-31T12:54:03.516Z
+    lastUpdated: 2026-08-31T12:54:03.600Z
     source: built-in
     npmPackage: null
     repoUrl: null
   - name: bmm
     version: 6.11.0
-    installDate: 2026-08-31T12:29:23.022Z
-    lastUpdated: 2026-08-31T12:29:23.061Z
+    installDate: 2026-08-31T12:54:03.551Z
+    lastUpdated: 2026-08-31T12:54:03.600Z
     source: built-in
     npmPackage: null
     repoUrl: null
 ides:
-  - claude-code
+  - mistral-vibe
