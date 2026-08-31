@@ -29,6 +29,7 @@ dev = [
 
 [project.scripts]
 todolist-mcp = "todolist_mcp:main"
+todolist-mcp-generate-token = "todolist_mcp.cli:generate_token"
 
 [tool.ruff]
 line-length = 100

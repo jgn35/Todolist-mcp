@@ -41,7 +41,7 @@ class UpdateTaskUseCase:
             Task: Updated task
         
         Raises:
-            ValueError: If task not found
+            ValueError: If task not found or task is completed
         """
         # Get existing task
         task = await self.repository.get_by_id(task_id)
@@ -49,15 +49,25 @@ class UpdateTaskUseCase:
         if task is None:
             raise ValueError(f"Task with id {task_id} not found")
         
+        # Cannot update completed tasks
+        if task.status == TaskStatus.COMPLETED:
+            raise ValueError("Cannot update completed task")
+        
         # Parse priority
         priority_enum = None
         if priority:
-            priority_enum = Priority(priority.lower())
+            try:
+                priority_enum = Priority(priority.lower())
+            except ValueError:
+                raise ValueError(f"Invalid priority value: {priority}. Must be low, medium, high, or critical")
         
         # Parse status
         status_enum = None
         if status:
-            status_enum = TaskStatus(status.lower())
+            try:
+                status_enum = TaskStatus(status.lower())
+            except ValueError:
+                raise ValueError(f"Invalid status value: {status}. Must be pending, completed, or cancelled")
         
         # Update task
         task.update(

@@ -27,13 +27,17 @@ class CompleteTaskUseCase:
             Task: Updated task
         
         Raises:
-            ValueError: If task not found
+            ValueError: If task not found or task is already completed
         """
         # Get existing task
         task = await self.repository.get_by_id(task_id)
         
         if task is None:
             raise ValueError(f"Task with id {task_id} not found")
+        
+        # Cannot complete already completed tasks
+        if task.status == TaskStatus.COMPLETED:
+            raise ValueError("Task already completed")
         
         # Mark as completed
         task.mark_completed()

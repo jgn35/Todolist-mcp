@@ -35,11 +35,21 @@ class CreateTaskUseCase:
         
         Returns:
             Task: Created task
+        
+        Raises:
+            ValueError: If title is empty or None
         """
+        # Validate title
+        if not title:
+            raise ValueError("Title is required")
+        
         # Parse priority
         priority_enum = None
         if priority:
-            priority_enum = Priority(priority.lower())
+            try:
+                priority_enum = Priority(priority.lower())
+            except ValueError:
+                raise ValueError(f"Invalid priority value: {priority}. Must be low, medium, high, or critical")
         
         # Create task entity
         task = Task(

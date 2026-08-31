@@ -2,18 +2,55 @@
 Todolist MCP Server Entry Point
 
 FastMCP-based server for task management via MCP protocol.
+Implements all 13 Functional Requirements from PRD.
 """
 
-from typing import Optional
 import asyncio
 import os
+from typing import Optional
+from uuid import UUID
+
+from fastmcp import FastMCP
+
+# Initialize FastMCP server
+mcp = FastMCP(name="todolist-mcp", version="0.1.0")
+
+# Global repository instance (initialized on first use)
+_task_repository = None
 
 
-def create_task(
+async def get_repository():
+    """Get or initialize the task repository."""
+    global _task_repository
+    if _task_repository is None:
+        from todolist_mcp.infrastructure.sqlite_adapter.repository import SQLiteTaskRepository
+        _task_repository = SQLiteTaskRepository()
+        await _task_repository.initialize()
+    return _task_repository
+
+
+async def get_token_manager():
+    """Get the token manager instance."""
+    from todolist_mcp.infrastructure.auth_adapter.token_manager import TokenManager
+    return TokenManager()
+
+
+async def validate_auth(token: Optional[str] = None) -> bool:
+    """Validate authentication token."""
+    if token is None:
+        return False
+    
+    token_manager = await get_token_manager()
+    return await token_manager.validate_token(token)
+
+
+@mcp.tool()
+async def create_task(
     title: str,
     description: Optional[str] = None,
     due_date: Optional[str] = None,
     priority: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> dict:
     """
     Create a new task.
@@ -23,32 +60,78 @@ def create_task(
         description: Task description (optional)
         due_date: Due date in YYYY-MM-DD HH:MM:SS format (optional)
         priority: Priority level (low, medium, high) (optional)
+        token: Authentication token (required)
     
     Returns:
-        dict: Created task with id, title, description, due_date, priority, status, created_at
+        dict: Created task with id, title, description, due_date, priority, status, created_at, updated_at
+    
+    Raises:
+        ValueError: If title is missing or authentication fails
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    if not title:
+        raise ValueError("Title is required")
+    
+    from todolist_mcp.application.use_cases.create_task import CreateTaskUseCase
+    
+    repo = await get_repository()
+    use_case = CreateTaskUseCase(repo)
+    
+    task = await use_case.execute(
+        title=title,
+        description=description,
+        due_date=due_date,
+        priority=priority,
+    )
+    
+    return task.to_dict()
 
 
-def get_task(task_id: str) -> dict:
+@mcp.tool()
+async def get_task(
+    task_id: str,
+    token: Optional[str] = None,
+) -> dict:
     """
     Get a task by ID.
     
     Args:
         task_id: Task UUID
+        token: Authentication token (required)
     
     Returns:
         dict: Task details
+    
+    Raises:
+        ValueError: If task not found or authentication fails
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    from todolist_mcp.application.use_cases.get_task import GetTaskUseCase
+    
+    repo = await get_repository()
+    use_case = GetTaskUseCase(repo)
+    
+    try:
+        task = await use_case.execute(task_id=task_id)
+        return task.to_dict()
+    except ValueError as e:
+        raise ValueError(f"Task not found: {e}")
 
 
-def list_tasks(
+@mcp.tool()
+async def list_tasks(
     status: Optional[str] = None,
     priority: Optional[str] = None,
     due_date: Optional[str] = None,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
+    token: Optional[str] = None,
 ) -> dict:
     """
     List tasks with optional filters.
@@ -56,23 +139,70 @@ def list_tasks(
     Args:
         status: Filter by status (pending, completed, cancelled)
         priority: Filter by priority (low, medium, high)
-        due_date: Filter by due date (YYYY-MM-DD)
-        limit: Maximum number of tasks to return
-        offset: Pagination offset
+        due_date: Filter by due date (YYYY-MM-DD, today, tomorrow, overdue, or range like 2026-08-31..2026-09-02)
+        limit: Maximum number of tasks to return (default 50)
+        offset: Pagination offset (default 0)
+        token: Authentication token (required)
     
     Returns:
         dict: List of tasks and pagination info
+    
+    Raises:
+        ValueError: If authentication fails
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    from todolist_mcp.application.use_cases.list_tasks import ListTasksUseCase
+    from datetime import datetime
+    
+    repo = await get_repository()
+    use_case = ListTasksUseCase(repo)
+    
+    # Parse due_date filter
+    parsed_due_date = None
+    if due_date:
+        due_date_lower = due_date.lower()
+        if due_date_lower == "today":
+            parsed_due_date = datetime.now().strftime("%Y-%m-%d")
+        elif due_date_lower == "tomorrow":
+            from datetime import timedelta
+            parsed_due_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        elif due_date_lower == "overdue":
+            # Handle overdue in the use case
+            parsed_due_date = "overdue"
+        elif ".." in due_date:
+            # Range - handle in use case
+            parsed_due_date = due_date
+        else:
+            parsed_due_date = due_date
+    
+    result = await use_case.execute(
+        status=status,
+        priority=priority,
+        due_date=parsed_due_date,
+        limit=limit or 50,
+        offset=offset or 0,
+    )
+    
+    return {
+        "tasks": [task.to_dict() for task in result.tasks],
+        "total": result.total,
+        "limit": result.limit,
+        "offset": result.offset,
+    }
 
 
-def update_task(
+@mcp.tool()
+async def update_task(
     task_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
     due_date: Optional[str] = None,
     priority: Optional[str] = None,
     status: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> dict:
     """
     Update a task.
@@ -84,37 +214,103 @@ def update_task(
         due_date: New due date (optional)
         priority: New priority (optional)
         status: New status (optional)
+        token: Authentication token (required)
     
     Returns:
         dict: Updated task
+    
+    Raises:
+        ValueError: If task not found, authentication fails, or task is completed
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    from todolist_mcp.application.use_cases.update_task import UpdateTaskUseCase
+    
+    repo = await get_repository()
+    use_case = UpdateTaskUseCase(repo)
+    
+    try:
+        task = await use_case.execute(
+            task_id=task_id,
+            title=title,
+            description=description,
+            due_date=due_date,
+            priority=priority,
+            status=status,
+        )
+        return task.to_dict()
+    except ValueError as e:
+        raise ValueError(str(e))
 
 
-def delete_task(task_id: str) -> dict:
+@mcp.tool()
+async def delete_task(
+    task_id: str,
+    token: Optional[str] = None,
+) -> dict:
     """
     Delete a task.
     
     Args:
         task_id: Task UUID
+        token: Authentication token (required)
     
     Returns:
         dict: Confirmation message
+    
+    Raises:
+        ValueError: If task not found or authentication fails
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    from todolist_mcp.application.use_cases.delete_task import DeleteTaskUseCase
+    
+    repo = await get_repository()
+    use_case = DeleteTaskUseCase(repo)
+    
+    try:
+        await use_case.execute(task_id=task_id)
+        return {"message": f"Task {task_id} deleted successfully"}
+    except ValueError as e:
+        raise ValueError(str(e))
 
 
-def complete_task(task_id: str) -> dict:
+@mcp.tool()
+async def complete_task(
+    task_id: str,
+    token: Optional[str] = None,
+) -> dict:
     """
     Mark a task as completed.
     
     Args:
         task_id: Task UUID
+        token: Authentication token (required)
     
     Returns:
         dict: Updated task
+    
+    Raises:
+        ValueError: If task not found, authentication fails, or task is already completed
     """
-    pass
+    # Validate authentication
+    if not await validate_auth(token):
+        raise ValueError("Unauthorized - Invalid or missing authentication token")
+    
+    from todolist_mcp.application.use_cases.complete_task import CompleteTaskUseCase
+    
+    repo = await get_repository()
+    use_case = CompleteTaskUseCase(repo)
+    
+    try:
+        task = await use_case.execute(task_id=task_id)
+        return task.to_dict()
+    except ValueError as e:
+        raise ValueError(str(e))
 
 
 def main():
@@ -128,6 +324,17 @@ def main():
     print("Todolist MCP Server")
     print("=" * 40)
     print("Server is ready to handle MCP requests")
+    print("\nAvailable tools:")
+    print("  - create_task")
+    print("  - get_task")
+    print("  - list_tasks")
+    print("  - update_task")
+    print("  - delete_task")
+    print("  - complete_task")
+    print("\nNote: All tools require a valid 'token' parameter for authentication.")
+    
+    # Run the server
+    asyncio.run(mcp.run_stdio())
 
 
 if __name__ == "__main__":

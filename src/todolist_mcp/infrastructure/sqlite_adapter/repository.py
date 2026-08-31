@@ -5,9 +5,10 @@ Implementation of TaskRepository interface using SQLite.
 """
 
 from typing import Optional, List, Tuple
-from sqlalchemy import create_engine, select, update, delete
+from sqlalchemy import create_engine, select, update, delete, or_, and_, desc, asc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from datetime import datetime, timedelta
 import os
 
 from todolist_mcp.domain.entities import Task, Priority, TaskStatus
@@ -119,20 +120,82 @@ class SQLiteTaskRepository(TaskRepository):
                 query = query.where(TaskModel.status == status)
             if priority:
                 query = query.where(TaskModel.priority == priority)
-            if due_date:
-                query = query.where(TaskModel.due_date == due_date)
             
-            # Count total
-            count_query = select([TaskModel.id])
+            # Handle due_date filter
+            if due_date:
+                due_date_lower = due_date.lower()
+                if due_date_lower == "today":
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    query = query.where(TaskModel.due_date.startswith(today_str))
+                elif due_date_lower == "tomorrow":
+                    tomorrow = datetime.now() + timedelta(days=1)
+                    tomorrow_str = tomorrow.strftime("%Y-%m-%d")
+                    query = query.where(TaskModel.due_date.startswith(tomorrow_str))
+                elif due_date_lower == "overdue":
+                    now = datetime.now()
+                    query = query.where(
+                        and_(
+                            TaskModel.due_date.isnot(None),
+                            TaskModel.status == "pending",
+                            TaskModel.due_date < now.strftime("%Y-%m-%d %H:%M:%S")
+                        )
+                    )
+                elif ".." in due_date:
+                    # Range filter
+                    start_date, end_date = due_date.split("..")
+                    query = query.where(
+                        and_(
+                            TaskModel.due_date >= start_date,
+                            TaskModel.due_date <= end_date
+                        )
+                    )
+                else:
+                    # Exact date or partial match
+                    query = query.where(TaskModel.due_date.startswith(due_date))
+            
+            # Count total (apply same filters)
+            count_query = select(TaskModel.id)
             if status:
                 count_query = count_query.where(TaskModel.status == status)
             if priority:
                 count_query = count_query.where(TaskModel.priority == priority)
             if due_date:
-                count_query = count_query.where(TaskModel.due_date == due_date)
+                due_date_lower = due_date.lower()
+                if due_date_lower == "today":
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+                    count_query = count_query.where(TaskModel.due_date.startswith(today_str))
+                elif due_date_lower == "tomorrow":
+                    tomorrow = datetime.now() + timedelta(days=1)
+                    tomorrow_str = tomorrow.strftime("%Y-%m-%d")
+                    count_query = count_query.where(TaskModel.due_date.startswith(tomorrow_str))
+                elif due_date_lower == "overdue":
+                    now = datetime.now()
+                    count_query = count_query.where(
+                        and_(
+                            TaskModel.due_date.isnot(None),
+                            TaskModel.status == "pending",
+                            TaskModel.due_date < now.strftime("%Y-%m-%d %H:%M:%S")
+                        )
+                    )
+                elif ".." in due_date:
+                    start_date, end_date = due_date.split("..")
+                    count_query = count_query.where(
+                        and_(
+                            TaskModel.due_date >= start_date,
+                            TaskModel.due_date <= end_date
+                        )
+                    )
+                else:
+                    count_query = count_query.where(TaskModel.due_date.startswith(due_date))
             
             total_result = await session.execute(count_query)
             total = len(total_result.scalars().all())
+            
+            # Apply sorting: due_date ASC, then priority DESC
+            query = query.order_by(
+                asc(TaskModel.due_date),
+                desc(TaskModel.priority)
+            )
             
             # Apply pagination
             if limit:
