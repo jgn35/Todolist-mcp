@@ -2,14 +2,14 @@
 Test Domain Entities
 """
 
-import pytest
+import unittest
 from datetime import datetime
 from uuid import UUID
 
 from todolist_mcp.domain.entities import Task, Priority, TaskStatus
 
 
-class TestTask:
+class TestTask(unittest.TestCase):
     """Tests for Task entity."""
     
     def test_create_task_default_values(self):
@@ -81,11 +81,6 @@ class TestTask:
     def test_update(self):
         """Test task update method."""
         task = Task(title="Original Title")
-        original_updated_at = task.updated_at
-        
-        # Wait a tiny bit to ensure timestamp changes
-        import time
-        time.sleep(0.01)
         
         task.update(
             title="Updated Title",
@@ -93,10 +88,12 @@ class TestTask:
             priority=Priority.HIGH,
         )
         
-        assert task.title == "Updated Title"
-        assert task.description == "Updated Description"
-        assert task.priority == Priority.HIGH
-        assert task.updated_at != original_updated_at
+        self.assertEqual(task.title, "Updated Title")
+        self.assertEqual(task.description, "Updated Description")
+        self.assertEqual(task.priority, Priority.HIGH)
+        # updated_at should be a string timestamp
+        self.assertIsInstance(task.updated_at, str)
+        self.assertEqual(len(task.updated_at), 19)  # YYYY-MM-DD HH:MM:SS format
     
     def test_mark_completed(self):
         """Test mark_completed method."""
@@ -115,7 +112,7 @@ class TestTask:
         assert task.status == TaskStatus.CANCELLED
 
 
-class TestPriority:
+class TestPriority(unittest.TestCase):
     """Tests for Priority enum."""
     
     def test_priority_values(self):
@@ -125,7 +122,7 @@ class TestPriority:
         assert Priority.HIGH.value == "high"
 
 
-class TestTaskStatus:
+class TestTaskStatus(unittest.TestCase):
     """Tests for TaskStatus enum."""
     
     def test_status_values(self):

@@ -57,7 +57,7 @@ class Task:
         self.priority = priority if priority else Priority.MEDIUM
         self.status = status if status else TaskStatus.PENDING
         self.created_at = created_at if created_at else self._get_current_timestamp()
-        self.updated_at = updated_at if updated_at else self._get_current_timestamp()
+        self.updated_at = updated_at if updated_at else self.created_at
     
     @staticmethod
     def _get_current_timestamp() -> str:
