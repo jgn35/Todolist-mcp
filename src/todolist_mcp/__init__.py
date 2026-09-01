@@ -287,21 +287,26 @@ Examples:
     parser.add_argument(
         "--transport",
         choices=["stdio", "http", "both"],
-        default="stdio",
+        default=os.environ.get("TODOLIST_MCP_TRANSPORT", "stdio"),
         help="Transport protocol: stdio (default), http, or both"
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8080,
+        default=int(os.environ.get("TODOLIST_MCP_HTTP_PORT", "8080")),
         help="HTTP port when using http or both transport (default: 8080)"
     )
 
     args = parser.parse_args()
 
     # Ensure database directory exists
-    db_dir = os.path.expanduser("~/.todolist-mcp")
-    os.makedirs(db_dir, exist_ok=True)
+    db_path = (
+        os.environ.get("TODOLIST_MCP_DB_PATH")
+        or os.path.expanduser("~/.todolist-mcp/todolist.db")
+    )
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
     print("Todolist MCP Server")
     print("=" * 40)

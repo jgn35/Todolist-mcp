@@ -1,0 +1,15 @@
+services:
+  todolist-mcp:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - todolist-mcp-data:/data
+    environment:
+      - TODOLIST_MCP_DB_PATH=/data/todolist.db
+      - TODOLIST_MCP_TRANSPORT=http
+      - TODOLIST_MCP_HTTP_PORT=8080
+    restart: unless-stopped
+
+volumes:
+  todolist-mcp-data:

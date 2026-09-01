@@ -7,8 +7,8 @@ paradigm: hexagonal (clean architecture)
 scope: Todolist MCP server - task management via MCP protocol
 status: final
 created: 2026-08-31
-updated: 2026-08-31
-binds: ["FR-1", "FR-2", "FR-3", "FR-4", "FR-5", "FR-6", "FR-7", "FR-8", "FR-9", "FR-10", "FR-11", "FR-12", "FR-13"]
+updated: 2026-09-01
+binds: ["FR-1", "FR-2", "FR-3", "FR-4", "FR-5", "FR-6", "FR-7", "FR-8", "FR-9", "FR-10", "FR-11", "FR-12", "FR-13", "FR-14", "FR-15", "FR-16"]
 sources: ["prd.md"]
 companions: ["prd.md"]
 ---
@@ -49,6 +49,8 @@ companions: ["prd.md"]
 | Persistence: SQLite | §4.1 | Data storage via SQLite database |
 | Auth: Single-user token | §4.4 | Token-based auth, single user |
 | Scope: Mono-user | §2.2 | No multi-user support in v1 |
+| Transport: HTTP | §4.5 | HTTP transport supported alongside stdio |
+| Config: 12-factor | §4.5 | Config via env vars (`TODOLIST_MCP_HTTP_PORT`) |
 
 ## Invariants & Rules
 
@@ -107,6 +109,30 @@ graph TD
 - **Prevents:** Timezone confusion in single-user context
 - **Rule:** All dates use local machine timezone. Format: `YYYY-MM-DD HH:MM:SS`. No timezone offset stored. Token stored in database per user validation.
 
+### AD-9 — Database Path is Environment-Configurable
+
+- **Binds:** Persistence layer (`SQLiteTaskRepository`, `TokenManager`), containerization
+- **Prevents:** Hardcoded paths that break volume mounts in Docker
+- **Rule:** The SQLite database path must be configurable via the `TODOLIST_MCP_DB_PATH` environment variable. Default: `~/.todolist-mcp/todolist.db` for local use. In containers: `/data/todolist.db` (mounted volume). All components that open the database (`SQLiteTaskRepository.__init__`, `TokenManager.__init__`, `BearerTokenVerifier.__init__`) must read this env var as their default `db_path`.
+
+### AD-10 — Container Runs HTTP Transport by Default
+
+- **Binds:** Transport configuration (FR-16), containerization
+- **Prevents:** stdio mode inside a container (no interactive terminal)
+- **Rule:** The Docker container defaults to `--transport http` via the `TODOLIST_MCP_TRANSPORT` env var (default: `http`). stdio remains available for local non-containerized use only. The container exposes port 8080 (configurable via `TODOLIST_MCP_HTTP_PORT`).
+
+### AD-11 — Container Image is Non-Root and Minimal
+
+- **Binds:** Dockerfile, containerization
+- **Prevents:** Running as root inside the container (security risk)
+- **Rule:** The Docker image uses a multi-stage build on `python:3.12-slim`. The runtime stage runs as a non-root user (`todolist`). The image contains only runtime dependencies — no dev tools, no source control metadata.
+
+### AD-12 — Container Persistence via Volume Mount
+
+- **Binds:** Persistence layer (AD-4), containerization
+- **Prevents:** Data loss when the container is recreated
+- **Rule:** The SQLite database file lives at `/data/todolist.db` inside the container, backed by a Docker named volume (`todolist-mcp-data`). The `/data` directory is created with correct ownership (user `todolist`) during the build.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -119,6 +145,77 @@ graph TD
 | Logging | Structured logging via Python's logging module, JSON format for production |
 | Config | Environment variables + config files, 12-factor app principles |
 | Auth | Bearer token in MCP header or request parameter |
+| Container | Multi-stage Docker build, non-root user, slim base image |
+
+## Container Configuration
+
+### Environment Variables
+
+| Variable | Default (local) | Default (container) | Purpose |
+| --- | --- | --- | --- |
+| `TODOLIST_MCP_DB_PATH` | `~/.todolist-mcp/todolist.db` | `/data/todolist.db` | SQLite database file path (AD-9) |
+| `TODOLIST_MCP_TRANSPORT` | `stdio` | `http` | Transport mode: stdio, http, both (AD-10) |
+| `TODOLIST_MCP_HTTP_PORT` | `8080` | `8080` | HTTP port when transport is http or both (FR-16) |
+
+### Dockerfile Strategy
+
+Multi-stage build on `python:3.12-slim`:
+
+```
+Stage 1: builder
+  ├── Install uv
+  ├── Copy pyproject.toml + uv.lock
+  ├── uv sync --no-dev (production deps only)
+  └── Copy src/
+
+Stage 2: runtime
+  ├── python:3.12-slim base
+  ├── Create non-root user `todolist` (uid 1000)
+  ├── Create /data directory owned by todolist
+  ├── Copy installed packages + app from builder
+  ├── Set env: TODOLIST_MCP_DB_PATH=/data/todolist.db
+  ├── Set env: TODOLIST_MCP_TRANSPORT=http
+  ├── Expose port 8080
+  ├── VOLUME /data
+  ├── Healthcheck: GET /mcp/tools via python
+  └── ENTRYPOINT: python -m todolist_mcp
+```
+
+### docker-compose.yml Strategy
+
+```yaml
+services:
+  todolist-mcp:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - todolist-mcp-data:/data
+    environment:
+      - TODOLIST_MCP_DB_PATH=/data/todolist.db
+      - TODOLIST_MCP_TRANSPORT=http
+      - TODOLIST_MCP_HTTP_PORT=8080
+    restart: unless-stopped
+
+volumes:
+  todolist-mcp-data:
+```
+
+### .dockerignore Exclusions
+
+```
+.git
+.gitignore
+_bmad-output/
+tests/
+__pycache__/
+*.pyc
+.env
+.venv
+.ruff_cache
+.pyright
+docs/
+```
 
 ## Stack
 
@@ -131,6 +228,9 @@ graph TD
 | pydantic | 2.x | Data validation and DTOs |
 | uuid | stdlib | UUID v4 generation |
 | typing | stdlib | Type hints |
+| uv | latest | Package manager (also used in Docker build) |
+| Docker | latest | Container runtime |
+| python:3.12-slim | 3.12 | Docker base image |
 
 ## Structural Seed
 
@@ -139,6 +239,8 @@ project-root/
 ├── src/
 │   └── todolist_mcp/
 │       ├── __init__.py          # MCP server entry (FastMCP), tool registration
+│       ├── __main__.py          # `python -m todolist_mcp` entry
+│       ├── cli.py               # CLI: generate-token, run server
 │       ├── domain/
 │       │   ├── __init__.py
 │       │   ├── entities.py      # Task, Priority, TaskStatus enums
@@ -163,16 +265,21 @@ project-root/
 │           ├── sqlite_adapter/
 │           │   ├── __init__.py
 │           │   ├── models.py     # SQLAlchemy models (includes auth_tokens table)
-│           │   └── repository.py # TaskRepository implementation
+│           │   └── repository.py # TaskRepository implementation (reads TODOLIST_MCP_DB_PATH)
 │           └── auth_adapter/
 │               ├── __init__.py
-│               └── token_manager.py
+│               ├── bearer_verifier.py  # Reads TODOLIST_MCP_DB_PATH
+│               ├── models.py
+│               └── token_manager.py    # Reads TODOLIST_MCP_DB_PATH
 ├── tests/
 │   ├── unit/
 │   │   ├── domain/
 │   │   └── application/
 │   └── integration/
 │       └── mcp_tools/
+├── Dockerfile                  # Multi-stage build: uv install → slim runtime, non-root
+├── docker-compose.yml          # Service def: port 8080, volume for /data, env vars
+├── .dockerignore               # Exclude .git, tests, _bmad-output, __pycache__, etc.
 ├── pyproject.toml
 └── _bmad-output/
     └── planning-artifacts/
@@ -192,6 +299,10 @@ project-root/
 | FR-9, FR-10, FR-11 (Due Dates) | `domain/entities.py`, use_cases | AD-1, AD-8 |
 | FR-12 (Auth) | `infrastructure/auth_adapter/`, `application/services/auth_service.py` | AD-5 (token in DB) |
 | FR-13 (Token Gen) | `infrastructure/auth_adapter/token_manager.py` + CLI | AD-5 (token in DB) |
+| FR-14 (HTTP Transport) | `infrastructure/mcp_adapter/`, `__init__.py` (main) | AD-3, AD-10 (container HTTP default) |
+| FR-15 (HTTP Auth) | `infrastructure/auth_adapter/bearer_verifier.py` | AD-5 (token in DB) |
+| FR-16 (Transport Config) | `__init__.py` (main), `cli.py` | AD-10, AD-9 (env vars) |
+| Containerization | `Dockerfile`, `docker-compose.yml`, `.dockerignore` | AD-9, AD-10, AD-11, AD-12 |
 
 ## Deferred
 
@@ -204,3 +315,6 @@ project-root/
 | Database migration | SQLite file-based, no schema changes expected | Schema changes needed |
 | Advanced filtering | Basic filters sufficient for MVP | Complex query needs emerge |
 | API versioning | MCP protocol handles versioning | Breaking changes to tools |
+| Docker health endpoint | Using `/mcp/tools` as implicit healthcheck | Need dedicated `/health` endpoint |
+| Docker image registry | Not publishing to a registry in v1 | CI/CD pipeline for automated builds |
+| Kubernetes manifests | Docker Compose sufficient for single-user | Multi-instance or cloud deployment |
