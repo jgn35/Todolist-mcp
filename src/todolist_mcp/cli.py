@@ -63,6 +63,36 @@ Examples:
         description='Generate a new authentication token for MCP server access'
     )
     token_parser.set_defaults(func=generate_token)
+    
+    # Run server command
+    server_parser = subparsers.add_parser(
+        'run',
+        help='Run the MCP server',
+        description='Run the Todolist MCP server with configurable transport'
+    )
+    server_parser.add_argument(
+        '--transport',
+        choices=['stdio', 'http', 'both'],
+        default='stdio',
+        help='Transport protocol: stdio (default), http, or both'
+    )
+    server_parser.add_argument(
+        '--port',
+        type=int,
+        default=8080,
+        help='HTTP port when using http or both transport (default: 8080)'
+    )
+    server_parser.set_defaults(func=run_server)
+
+
+def run_server():
+    """Run the MCP server."""
+    from todolist_mcp import main
+    import sys
+    
+    # Pass arguments to main function
+    sys.argv = ['todolist-mcp'] + sys.argv[1:]
+    main()
 
     args = parser.parse_args()
 

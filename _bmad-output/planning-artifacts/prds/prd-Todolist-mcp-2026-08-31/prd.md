@@ -1,8 +1,8 @@
 ---
 title: Todolist MCP - Gestion de listes de tâches par LLM
 created: 2026-08-31
-updated: 2026-08-31
-status: final
+updated: 2026-09-01
+status: draft
 ---
 
 # PRD: Todolist MCP
@@ -51,6 +51,7 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 - **JTBD-2 :** "Je veux que mon LLM se souvienne de me rappeler quelque chose, et me le rappelle au bon moment"
 - **JTBD-3 :** "Je veux marquer une tâche comme terminée naturellement, sans command line ou UI"
 - **JTBD-4 :** "Je veux prioriser mes tâches et gérer leurs échéances directement via conversation"
+- **JTBD-5 :** "Je veux intégrer la gestion des tâches dans mon application personnalisée via une API HTTP"
 
 ### 2.2 Non-Users (v1)
 
@@ -95,6 +96,17 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 - **Climax :** Le status de la tâche passe à "completed"
 - **Resolution :** La tâche n'apparaîtra plus dans les requêtes "tâches en cours"
 
+**UJ-4. Jean utilise le serveur MCP via HTTP pour une intégration personnalisée**
+- **Persona + contexte :** Jean, développeur, veut intégrer Todolist MCP dans son application personnalisée via HTTP.
+- **Entry state :** Serveur Todolist MCP démarré en mode HTTP sur le port 8080, token valide généré.
+- **Path :**
+  1. Jean envoie une requête POST à `http://localhost:8080/mcp/call` avec header `Authorization: Bearer <token>`
+  2. Le body contient : `{"tool": "list_tasks", "arguments": {"due_date": "today"}}`
+  3. Le serveur MCP traite la requête et retourne la liste des tâches du jour
+  4. Jean reçoit la réponse JSON avec les tâches
+- **Climax :** L'application de Jean affiche les tâches du jour
+- **Resolution :** Jean peut maintenant intégrer la gestion des tâches dans son application
+
 ---
 
 ## 3. Glossary
@@ -106,6 +118,9 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 - **Serveur MCP** : Serveur implémentant le Model Context Protocol, permettant aux LLM d'appeler des outils définis.
 - **Outil MCP (Tool)** : Fonction exposée par le serveur MCP que le LLM peut appeler. Chaque outil a un nom, une description, et un schéma d'entrée/sortie.
 - **Token d'authentification** : Chaîne secrète permettant à un client MCP de s'authentifier auprès du serveur. En v1 : un seul token valide pour l'utilisateur unique, généré via CLI.
+- **Transport stdio** : Méthode de communication standard via stdin/stdout, utilisée par défaut par MCP.
+- **Transport HTTP** : Méthode de communication alternative via protocole HTTP, permettant une intégration plus flexible avec des clients distants ou des architectures microservices.
+- **Endpoint HTTP** : URL accessible exposant les outils MCP via HTTP (ex: `POST /mcp/call`).
 
 ---
 
@@ -263,6 +278,51 @@ L'application permet de générer un token d'authentification unique via une com
 - Un seul token est nécessaire pour v1 (mono-utilisateur)
 - Le token est stocké dans un fichier de configuration local (ex: `~/.todolist-mcp/token`)
 
+### 4.5 Support du protocole HTTP
+**Description :** Permettre au serveur MCP de communiquer via HTTP en plus du transport stdio standard, pour une intégration plus flexible avec des clients distants ou des architectures modernes.
+
+**Functional Requirements:**
+
+#### FR-14: Support du transport HTTP
+
+Le serveur MCP peut être configuré pour exposer ses outils via HTTP en plus de stdio.
+
+**Consequences (testable):**
+- Le serveur expose un endpoint HTTP POST `/mcp/call` pour l'exécution des outils
+- Le serveur expose un endpoint HTTP GET `/mcp/tools` pour lister les outils disponibles
+- Le serveur expose un endpoint HTTP GET `/mcp/tools/{tool_name}` pour obtenir le schéma d'un outil spécifique
+- Le serveur accepte les requêtes HTTP avec headers `Content-Type: application/json`
+- Les réponses HTTP sont au format JSON avec le bon status code
+
+#### FR-15: Authentification HTTP
+
+Les requêtes HTTP nécessitent une authentification valide.
+
+**Consequences (testable):**
+- Le serveur accepte le token d'authentification via header HTTP `Authorization: Bearer <token>`
+- Le serveur accepte le token d'authentification via paramètre de requête `?token=<token>`
+- Le header `Authorization` a la priorité sur le paramètre de requête
+- Un token invalide ou manquant retourne un status HTTP 401 Unauthorized
+
+#### FR-16: Configuration du mode de transport
+
+L'utilisateur peut choisir le mode de transport au démarrage du serveur.
+
+**Consequences (testable):**
+- Le serveur accepte un paramètre de configuration `--transport` avec valeurs : `stdio` (défaut), `http`, ou `both`
+- En mode `http`, le serveur démarre un serveur HTTP sur un port configurable (défaut: 8080)
+- En mode `both`, le serveur gère simultanément stdio et HTTP
+- En mode `stdio`, le serveur fonctionne comme avant (comportement par défaut)
+
+**Feature-specific NFRs:**
+- Performance : Les appels HTTP doivent répondre en < 500ms pour un jeu de données de < 1000 tâches
+- Sécurité : Le serveur HTTP doit désactiver CORS par défaut pour une utilisation locale
+- Configuration : Le port HTTP doit être configurable via variable d'environnement `TODOLIST_MCP_HTTP_PORT`
+
+**Notes:**
+- [ASSUMPTION: Le serveur HTTP utilise FastAPI ou un framework similaire pour la gestion des routes]
+- [ASSUMPTION: Le transport HTTP suit les conventions MCP pour la sérialisation des requêtes/réponses]
+
 ---
 
 ## 5. Non-Goals (Explicit)
@@ -292,6 +352,9 @@ L'application permet de générer un token d'authentification unique via une com
 ✅ Filtres de base pour `list_tasks`
 ✅ Tri intelligent par échéance et priorité
 ✅ Documentation des outils MCP (pour le LLM)
+✅ Support du transport HTTP avec endpoints RESTful
+✅ Authentification HTTP via headers ou paramètres
+✅ Configuration flexible du mode de transport (stdio/HTTP/both)
 
 ### 6.2 Out of Scope for MVP
 
@@ -308,7 +371,8 @@ L'application permet de générer un token d'authentification unique via une com
 **Primary**
 - **SM-1**: 100% des fonctionnalités CRUD fonctionnelles et testées. Valide FR-1 à FR-6.
 - **SM-2**: Temps de réponse moyen des outils MCP < 100ms pour < 100 tâches. Valide FR-1 à FR-11.
-- **SM-3**: L'utilisateur peut accomplir UJ-1, UJ-2, UJ-3 sans erreur. Valide tous les FR.
+- **SM-3**: L'utilisateur peut accomplir UJ-1, UJ-2, UJ-3, UJ-4 sans erreur. Valide tous les FR.
+- **SM-4**: 100% des endpoints HTTP fonctionnels et testés. Valide FR-14 à FR-16.
 
 **Secondary**
 - **SM-4**: Couverture de tests unitaires > 80%. Valide la qualité du code.
@@ -332,3 +396,5 @@ L'application permet de générer un token d'authentification unique via une com
 
 - **§4.1** : Le LLM est capable de parser les requêtes utilisateur pour extraire les paramètres nécessaires aux appels MCP ✅
 - **§4.1** : Le matching de tâche pour UJ-3 se fait par similarité de texte sur le titre ✅
+- **§4.5** : Le serveur HTTP utilise FastAPI ou un framework similaire pour la gestion des routes 🔄
+- **§4.5** : Le transport HTTP suit les conventions MCP pour la sérialisation des requêtes/réponses 🔄

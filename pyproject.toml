@@ -17,6 +17,11 @@ dependencies = [
     "sqlalchemy",
     "aiosqlite",
     "pydantic",
+    "fastapi",
+    "uvicorn",
+    "aiohttp>=3.14.3",
+    "requests>=2.34.2",
+    "ruff>=0.16.5",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +35,7 @@ dev = [
 [project.scripts]
 todolist-mcp = "todolist_mcp:main"
 todolist-mcp-generate-token = "todolist_mcp.cli:generate_token"
+todolist-mcp-run = "todolist_mcp.cli:run_server"
 
 [tool.ruff]
 line-length = 100
