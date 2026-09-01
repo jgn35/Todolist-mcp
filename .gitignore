@@ -51,6 +51,13 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# UV/Python virtual environment
+bin/
+include/
+lib64/
+pyvenv.cfg
+uv.lock
+
 # Logs
 *.log
 logs/
