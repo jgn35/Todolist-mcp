@@ -3,6 +3,7 @@ Todolist MCP Server Entry Point
 
 FastMCP-based server for task management via MCP protocol.
 Implements all 13 Functional Requirements from PRD.
+Updated workflow triggers.
 """
 
 import os

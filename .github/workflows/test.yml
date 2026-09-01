@@ -9,7 +9,6 @@ on:
       - '.gitignore'
       - 'AGENTS.md'
       - '_bmad-output/**'
-      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -18,7 +17,6 @@ on:
       - '.gitignore'
       - 'AGENTS.md'
       - '_bmad-output/**'
-      - '.github/workflows/**'
 
 jobs:
   test:
