@@ -66,8 +66,6 @@ logs/
 *.db
 *.sqlite
 
-# BMad output (keep PRD files but ignore temporary files)
-_bmad-output/planning-artifacts/prds/**/addendum.md
-_bmad-output/planning-artifacts/prds/**/memlog.md
-_bmad-output/planning-artifacts/prds/**/.memlog.md
+# BMad output - ignore all generated files
+_bmad-output/
 !_bmad-output/planning-artifacts/prds/**/prd.md
