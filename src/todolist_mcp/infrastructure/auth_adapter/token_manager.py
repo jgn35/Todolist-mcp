@@ -23,7 +23,11 @@ class TokenManager:
     """
 
     def __init__(self, db_path: str | None = None):
-        self.db_path = db_path or os.path.expanduser("~/.todolist-mcp/todolist.db")
+        self.db_path = (
+            db_path
+            or os.environ.get("TODOLIST_MCP_DB_PATH")
+            or os.path.expanduser("~/.todolist-mcp/todolist.db")
+        )
         self.engine = None
         self.Session = None
         self._initialize()

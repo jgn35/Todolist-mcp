@@ -73,13 +73,13 @@ Examples:
     server_parser.add_argument(
         '--transport',
         choices=['stdio', 'http', 'both'],
-        default='stdio',
+        default=os.environ.get('TODOLIST_MCP_TRANSPORT', 'stdio'),
         help='Transport protocol: stdio (default), http, or both'
     )
     server_parser.add_argument(
         '--port',
         type=int,
-        default=8080,
+        default=int(os.environ.get('TODOLIST_MCP_HTTP_PORT', '8080')),
         help='HTTP port when using http or both transport (default: 8080)'
     )
     server_parser.set_defaults(func=run_server)
@@ -99,10 +99,12 @@ def run_server(args=None):
 
     # Rebuild argv for the server entry: drop the 'run' subcommand, keep flags
     rest = []
+    default_transport = os.environ.get('TODOLIST_MCP_TRANSPORT', 'stdio')
+    default_port = int(os.environ.get('TODOLIST_MCP_HTTP_PORT', '8080'))
     if args is not None:
-        if getattr(args, 'transport', None) and args.transport != 'stdio':
+        if getattr(args, 'transport', None) and args.transport != default_transport:
             rest.extend(['--transport', args.transport])
-        if getattr(args, 'port', None) and args.port != 8080:
+        if getattr(args, 'port', None) and args.port != default_port:
             rest.extend(['--port', str(args.port)])
     sys.argv = ['todolist-mcp'] + rest
     main()

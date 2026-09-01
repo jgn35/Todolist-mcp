@@ -1,0 +1,12 @@
+.git
+.gitignore
+_bmad-output/
+tests/
+__pycache__/
+*.pyc
+.env
+.venv
+.ruff_cache
+.pyright
+docs/
+.agents/
