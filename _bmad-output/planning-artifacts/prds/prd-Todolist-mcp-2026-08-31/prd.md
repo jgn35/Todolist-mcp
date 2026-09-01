@@ -2,7 +2,7 @@
 title: Todolist MCP - Gestion de listes de tâches par LLM
 created: 2026-08-31
 updated: 2026-09-01
-status: draft
+status: final
 ---
 
 # PRD: Todolist MCP
@@ -63,7 +63,7 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 
 **UJ-1. Jean consulte ses tâches du jour avant de commencer sa journée**
 - **Persona + contexte :** Jean, développeur utilisant un LLM quotidiennement, veut organiser sa journée de travail.
-- **Entry state :** Jean a démarré sa session avec son client LLM (compatible MCP). Il est authentifié via token.
+- **Entry state :** Jean a démarré sa session avec son client LLM (compatible MCP) via stdio. Aucun token requis en local.
 - **Path :** 
   1. Jean demande : "Quelles sont mes tâches pour aujourd'hui ?"
   2. Le LLM interroge Todolist MCP via l'outil `get_tasks` avec filtre `due_date: today`
@@ -74,7 +74,7 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 
 **UJ-2. Jean ajoute une tâche depuis sa conversation**
 - **Persona + contexte :** Jean pense à quelque chose d'important pendant sa conversation avec le LLM.
-- **Entry state :** Session MCP active et authentifiée.
+- **Entry state :** Session MCP active via stdio.
 - **Path :**
   1. Jean dit : "Rappelle-moi de vérifier les logs de production à 15h"
   2. Le LLM détecte l'intention d'ajout de tâche
@@ -117,7 +117,7 @@ Le projet élimine la friction de basculer vers une application de todo séparé
 - **Date d'échéance (Due Date)** : Date et heure limite pour accomplir une tâche. Format simplifié local : `YYYY-MM-DD HH:MM:SS`. Peut être `null` pour les tâches sans échéance. Le serveur interprète les dates dans le timezone local de la machine.
 - **Serveur MCP** : Serveur implémentant le Model Context Protocol, permettant aux LLM d'appeler des outils définis.
 - **Outil MCP (Tool)** : Fonction exposée par le serveur MCP que le LLM peut appeler. Chaque outil a un nom, une description, et un schéma d'entrée/sortie.
-- **Token d'authentification** : Chaîne secrète permettant à un client MCP de s'authentifier auprès du serveur. En v1 : un seul token valide pour l'utilisateur unique, généré via CLI.
+- **Token d'authentification** : Chaîne secrète permettant à un client MCP de s'authentifier auprès du serveur. En v1 : un seul token valide pour l'utilisateur unique, généré via CLI. Requis uniquement pour le transport HTTP ; le transport stdio local n'en exige pas.
 - **Transport stdio** : Méthode de communication standard via stdin/stdout, utilisée par défaut par MCP.
 - **Transport HTTP** : Méthode de communication alternative via protocole HTTP, permettant une intégration plus flexible avec des clients distants ou des architectures microservices.
 - **Endpoint HTTP** : URL accessible exposant les outils MCP via HTTP (ex: `POST /mcp/call`).
@@ -249,19 +249,18 @@ Le LLM peut filtrer les tâches par date via `list_tasks` (FR-3).
 Le LLM peut modifier la date d'échéance d'une tâche via `update_task` (FR-4).
 
 ### 4.4 Authentification
-**Description :** Sécuriser l'accès au serveur MCP pour protéger les données de l'utilisateur unique.
+**Description :** Sécuriser l'accès distant au serveur MCP (transport HTTP) pour protéger les données de l'utilisateur unique. Le transport stdio local est considéré de confiance et n'exige pas d'authentification.
 
 **Functional Requirements:**
 
-#### FR-12: Authentification par token
+#### FR-12: Authentification par token (transport HTTP)
 
-Tout appel aux outils MCP nécessite un token d'authentification valide.
+Le serveur MCP requiert un token d'authentification valide uniquement pour les appels reçus via le transport HTTP. Le transport stdio, utilisé localement par un client MCP de confiance, n'exige pas de token.
 
 **Consequences (testable):**
-- Le serveur MCP expose un mécanisme d'authentification par header ou paramètre
-- Le serveur vérifie le token avant toute exécution d'outil
-- Un token invalide retourne une erreur 401 Unauthorized
-- Un token manquant retourne une erreur 401 Unauthorized
+- En mode `http` ou `both`, le serveur vérifie le token avant toute exécution d'outil
+- En mode `stdio`, les outils sont accessibles sans token (transport local de confiance)
+- Un token invalide ou manquant sur HTTP retourne une erreur 401 Unauthorized
 - **Pas de rotation automatique du token** en v1 (mono-utilisateur, risque sécurité acceptable)
 
 #### FR-13: Génération du token via CLI
@@ -345,7 +344,7 @@ L'utilisateur peut choisir le mode de transport au démarrage du serveur.
 
 ✅ Serveur MCP en Python avec tous les outils définis (§4)
 ✅ Base de données SQLite pour la persistance
-✅ Authentification par token unique
+✅ Authentification par token unique (transport HTTP uniquement)
 ✅ Gestion complète CRUD des tâches
 ✅ Gestion de la priorité (4 niveaux)
 ✅ Gestion des dates d'échéance

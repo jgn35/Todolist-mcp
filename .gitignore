@@ -66,6 +66,16 @@ logs/
 *.db
 *.sqlite
 
-# BMad output - ignore all generated files
-_bmad-output/
-!_bmad-output/planning-artifacts/prds/**/prd.md
+# BMad output - keep project artifacts, ignore transient generated files
+# Use /** (ignore contents) not / (ignore dir) so subdirectories can be re-included.
+_bmad-output/**
+!_bmad-output/planning-artifacts/
+!_bmad-output/planning-artifacts/prds/
+!_bmad-output/planning-artifacts/prds/**
+!_bmad-output/planning-artifacts/architecture/
+!_bmad-output/planning-artifacts/architecture/**
+!_bmad-output/implementation-artifacts/
+!_bmad-output/implementation-artifacts/**
+# Transient reviewer/reconcile outputs — regenerated each run, never versioned
+_bmad-output/**/review-*.md
+_bmad-output/**/reconcile-*.md
