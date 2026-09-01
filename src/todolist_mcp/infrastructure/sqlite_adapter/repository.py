@@ -7,7 +7,7 @@ Implementation of TaskRepository interface using SQLite.
 import os
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, asc, create_engine, delete, desc, select
+from sqlalchemy import and_, asc, case, create_engine, delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -192,10 +192,18 @@ class SQLiteTaskRepository(TaskRepository):
             total_result = await session.execute(count_query)
             total = len(total_result.scalars().all())
 
-            # Apply sorting: due_date ASC, then priority DESC
+            # Apply sorting: due_date ASC, then priority DESC (by weight, not
+            # alphabetically — "critical" > "high" > "medium" > "low").
+            priority_weight = case(
+                (TaskModel.priority == "critical", 4),
+                (TaskModel.priority == "high", 3),
+                (TaskModel.priority == "medium", 2),
+                (TaskModel.priority == "low", 1),
+                else_=0,
+            )
             query = query.order_by(
                 asc(TaskModel.due_date),
-                desc(TaskModel.priority)
+                desc(priority_weight),
             )
 
             # Apply pagination

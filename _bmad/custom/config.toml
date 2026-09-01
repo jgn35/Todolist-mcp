@@ -1,0 +1,6 @@
+# Team-level BMad overrides. Not touched by the installer.
+# Pins values the installer only wrote to YAML configs so the TOML-based
+# skill renderer can resolve them.
+
+[core]
+communication_language = "English"
