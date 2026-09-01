@@ -1,138 +1,66 @@
 """
-Test Authentication Validation for MCP Tools
+Test Bearer Token Verifier
+
+Tests the BearerTokenVerifier that bridges TokenManager to FastMCP's auth
+provider system. Auth is now handled at the HTTP transport level, not per-tool.
 """
 
 import asyncio
+import os
+import tempfile
 import unittest
-from unittest.mock import AsyncMock, patch
 
-from todolist_mcp import complete_task, create_task, delete_task, get_task, list_tasks, update_task
+from todolist_mcp.infrastructure.auth_adapter.bearer_verifier import BearerTokenVerifier
+from todolist_mcp.infrastructure.auth_adapter.token_manager import TokenManager
 
 
-class TestAuthValidation(unittest.TestCase):
-    """Tests for authentication validation across all MCP tools."""
+class TestBearerTokenVerifier(unittest.TestCase):
+    """Tests for the BearerTokenVerifier auth provider."""
 
     def setUp(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        # Mock the validate_auth function to return False (no token or invalid)
-        self.patcher = patch('todolist_mcp.validate_auth', new_callable=AsyncMock)
-        self.mock_validate = self.patcher.start()
+
+        self.temp_dir = tempfile.mkdtemp()
+        self.db_path = os.path.join(self.temp_dir, "test_auth.db")
+
+        self.token_manager = TokenManager(db_path=self.db_path)
+        self.valid_token = self.token_manager.generate_token()
+        self.verifier = BearerTokenVerifier(db_path=self.db_path)
 
     def tearDown(self):
         self.loop.close()
-        self.patcher.stop()
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+        if os.path.exists(self.temp_dir):
+            os.rmdir(self.temp_dir)
 
-    def test_create_task_missing_token(self):
-        """Test create_task with missing token raises Unauthorized error."""
+    def test_valid_token_returns_access_token(self):
+        """A valid token returns an AccessToken."""
         async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await create_task(title="Test Task", token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
-            self.assertIn("Invalid or missing", str(context.exception))
+            result = await self.verifier.verify_token(self.valid_token)
+            self.assertIsNotNone(result)
+            if result is not None:
+                self.assertEqual(result.token, self.valid_token)
 
         self.loop.run_until_complete(run_test())
 
-    def test_create_task_invalid_token(self):
-        """Test create_task with invalid token raises Unauthorized error."""
+    def test_invalid_token_returns_none(self):
+        """An invalid token returns None."""
         async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await create_task(title="Test Task", token="invalid_token")
-
-            self.assertIn("Unauthorized", str(context.exception))
-            self.assertIn("Invalid or missing", str(context.exception))
+            result = await self.verifier.verify_token("invalid_token_12345")
+            self.assertIsNone(result)
 
         self.loop.run_until_complete(run_test())
 
-    def test_get_task_missing_token(self):
-        """Test get_task with missing token raises Unauthorized error."""
+    def test_empty_token_returns_none(self):
+        """An empty string token returns None."""
         async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await get_task(task_id="12345678-1234-1234-1234-123456789abc", token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_get_task_invalid_token(self):
-        """Test get_task with invalid token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await get_task(task_id="12345678-1234-1234-1234-123456789abc", token="invalid_token")
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_list_tasks_missing_token(self):
-        """Test list_tasks with missing token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await list_tasks(token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_list_tasks_invalid_token(self):
-        """Test list_tasks with invalid token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await list_tasks(token="invalid_token")
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_update_task_missing_token(self):
-        """Test update_task with missing token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await update_task(task_id="12345678-1234-1234-1234-123456789abc", token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_delete_task_missing_token(self):
-        """Test delete_task with missing token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await delete_task(task_id="12345678-1234-1234-1234-123456789abc", token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
-
-        self.loop.run_until_complete(run_test())
-
-    def test_complete_task_missing_token(self):
-        """Test complete_task with missing token raises Unauthorized error."""
-        async def run_test():
-            self.mock_validate.return_value = False
-
-            with self.assertRaises(ValueError) as context:
-                await complete_task(task_id="12345678-1234-1234-1234-123456789abc", token=None)
-
-            self.assertIn("Unauthorized", str(context.exception))
+            result = await self.verifier.verify_token("")
+            self.assertIsNone(result)
 
         self.loop.run_until_complete(run_test())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from todolist_mcp.infrastructure.auth_adapter.token_manager import TokenManager
 
 
-def generate_token():
+def generate_token(args=None):
     """Generate a new authentication token."""
     token_manager = TokenManager()
 
@@ -84,15 +84,27 @@ Examples:
     )
     server_parser.set_defaults(func=run_server)
 
+    args = parser.parse_args()
+    if not getattr(args, 'func', None):
+        parser.print_help()
+        return
+    args.func(args)
 
-def run_server():
+
+def run_server(args=None):
     """Run the MCP server."""
     import sys
 
     from todolist_mcp import main
 
-    # Pass arguments to main function
-    sys.argv = ['todolist-mcp'] + sys.argv[1:]
+    # Rebuild argv for the server entry: drop the 'run' subcommand, keep flags
+    rest = []
+    if args is not None:
+        if getattr(args, 'transport', None) and args.transport != 'stdio':
+            rest.extend(['--transport', args.transport])
+        if getattr(args, 'port', None) and args.port != 8080:
+            rest.extend(['--port', str(args.port)])
+    sys.argv = ['todolist-mcp'] + rest
     main()
 
 
