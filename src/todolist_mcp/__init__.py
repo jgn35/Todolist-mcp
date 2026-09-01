@@ -318,7 +318,11 @@ Examples:
     print("  - complete_task")
 
     # Run the server using FastMCP's native transport
-    mcp.run(transport=args.transport, port=args.port)
+    # stdio does not accept a port argument; only http/both do.
+    if args.transport == "stdio":
+        mcp.run(transport=args.transport)
+    else:
+        mcp.run(transport=args.transport, port=args.port)
 
 
 if __name__ == "__main__":
