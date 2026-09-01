@@ -317,8 +317,8 @@ async def complete_task(
 
 def main():
     """Run the MCP server."""
-    import asyncio
     import argparse
+    import asyncio
 
     parser = argparse.ArgumentParser(
         description="Todolist MCP Server - Task management via MCP protocol",
@@ -343,7 +343,7 @@ Examples:
         default=8080,
         help="HTTP port when using http or both transport (default: 8080)"
     )
-    
+
     args = parser.parse_args()
 
     # Ensure database directory exists
@@ -377,11 +377,11 @@ Examples:
 def run_http_server_sync(port: int = 8080):
     """Run the MCP server with HTTP transport (synchronous)."""
     import uvicorn
-    
+
     # Create the FastAPI app
     from fastapi import FastAPI, HTTPException, Request
     from pydantic import BaseModel
-    
+
     app = FastAPI(title="Todolist MCP HTTP Server", version="0.1.0")
 
     class MCPRequest(BaseModel):
@@ -401,11 +401,11 @@ def run_http_server_sync(port: int = 8080):
             token = token[7:]
         else:
             token = request.query_params.get("token")
-        
+
         # Validate auth
         if not await validate_auth(token):
             raise HTTPException(status_code=401, detail="Unauthorized")
-        
+
         # Get all tools from FastMCP
         tools = []
         for tool_name in mcp._tool_manager._tools:
@@ -415,7 +415,7 @@ def run_http_server_sync(port: int = 8080):
                 "description": tool.description,
                 "parameters": tool.args_model.model_json_schema() if tool.args_model else {}
             })
-        
+
         return {"tools": tools}
 
     @app.get("/mcp/tools/{tool_name}")
@@ -427,15 +427,15 @@ def run_http_server_sync(port: int = 8080):
             token = token[7:]
         else:
             token = request.query_params.get("token")
-        
+
         # Validate auth
         if not await validate_auth(token):
             raise HTTPException(status_code=401, detail="Unauthorized")
-        
+
         # Get tool from FastMCP
         if tool_name not in mcp._tool_manager._tools:
             raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
-        
+
         tool = mcp._tool_manager._tools[tool_name]
         return {
             "name": tool.name,
@@ -452,25 +452,25 @@ def run_http_server_sync(port: int = 8080):
             token = token[7:]
         else:
             token = http_request.query_params.get("token")
-        
+
         # Validate auth
         if not await validate_auth(token):
             raise HTTPException(status_code=401, detail="Unauthorized")
-        
+
         # Get the tool
         tool_name = request.tool
         if tool_name not in mcp._tool_manager._tools:
             raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
-        
+
         tool = mcp._tool_manager._tools[tool_name]
-        
+
         try:
             # Call the tool with the provided arguments
             # Add token to arguments if not already present
             arguments = request.arguments.copy()
             if "token" not in arguments:
                 arguments["token"] = token
-            
+
             result = await tool.call(**arguments)
             return MCPResponse(result=result)
         except Exception as e:
@@ -487,16 +487,17 @@ async def run_http_server(port: int = 8080):
 
 def run_both_servers_sync(port: int = 8080):
     """Run the MCP server with both stdio and HTTP transports."""
+    import asyncio
     import threading
-    
+
     # Start HTTP server in background thread
     http_thread = threading.Thread(target=run_http_server_sync, args=(port,))
     http_thread.daemon = True
     http_thread.start()
-    
+
     # Run stdio server in main thread
     asyncio.run(mcp.run_stdio())
-    
+
     # Clean up HTTP server
     # The thread will be terminated when main thread exits
 

@@ -63,7 +63,7 @@ Examples:
         description='Generate a new authentication token for MCP server access'
     )
     token_parser.set_defaults(func=generate_token)
-    
+
     # Run server command
     server_parser = subparsers.add_parser(
         'run',
@@ -87,19 +87,13 @@ Examples:
 
 def run_server():
     """Run the MCP server."""
-    from todolist_mcp import main
     import sys
-    
+
+    from todolist_mcp import main
+
     # Pass arguments to main function
     sys.argv = ['todolist-mcp'] + sys.argv[1:]
     main()
-
-    args = parser.parse_args()
-
-    if hasattr(args, 'func'):
-        args.func()
-    else:
-        parser.print_help()
 
 
 if __name__ == "__main__":
