@@ -282,6 +282,8 @@ Examples:
   todolist-mcp --transport http   Start server with HTTP transport on port 8080
   todolist-mcp --transport both   Start server with both stdio and HTTP transports
   todolist-mcp --port 8000        Start HTTP server on port 8000
+  todolist-mcp --host 0.0.0.0     Start server listening on all interfaces
+  todolist-mcp --host 192.168.1.1 Start server listening on specific IP
         """
     )
     parser.add_argument(
@@ -295,6 +297,11 @@ Examples:
         type=int,
         default=int(os.environ.get("TODOLIST_MCP_HTTP_PORT", "8080")),
         help="HTTP port when using http or both transport (default: 8080)"
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("TODOLIST_MCP_HOST"),
+        help="Host IP address to listen on (default: from TODOLIST_MCP_HOST env var, or 127.0.0.1 for stdio, 0.0.0.0 for http/both)"
     )
 
     args = parser.parse_args()
@@ -312,6 +319,7 @@ Examples:
     print("=" * 40)
     print(f"Transport mode: {args.transport}")
     if args.transport in ["http", "both"]:
+        print(f"HTTP host: {args.host}")
         print(f"HTTP port: {args.port}")
     print("Server is ready to handle MCP requests")
     print("\nAvailable tools:")
@@ -323,11 +331,13 @@ Examples:
     print("  - complete_task")
 
     # Run the server using FastMCP's native transport
-    # stdio does not accept a port argument; only http/both do.
+    # stdio does not accept a port argument; http/both need port and host
+    # Resolve host: CLI arg > env var > default based on transport
+    host = args.host or os.environ.get("TODOLIST_MCP_HOST", "127.0.0.1" if args.transport == "stdio" else "0.0.0.0")
     if args.transport == "stdio":
         mcp.run(transport=args.transport)
     else:
-        mcp.run(transport=args.transport, port=args.port)
+        mcp.run(transport=args.transport, host=host, port=args.port)
 
 
 if __name__ == "__main__":
