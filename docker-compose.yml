@@ -9,6 +9,7 @@ services:
       - TODOLIST_MCP_DB_PATH=/data/todolist.db
       - TODOLIST_MCP_TRANSPORT=http
       - TODOLIST_MCP_HTTP_PORT=8080
+      - TODOLIST_MCP_HOST=0.0.0.0
     restart: unless-stopped
 
 volumes:

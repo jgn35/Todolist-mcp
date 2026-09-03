@@ -18,6 +18,7 @@ RUN mkdir -p /data && chown todolist:todolist /data
 ENV TODOLIST_MCP_DB_PATH=/data/todolist.db
 ENV TODOLIST_MCP_TRANSPORT=http
 ENV TODOLIST_MCP_HTTP_PORT=8080
+ENV TODOLIST_MCP_HOST=0.0.0.0
 
 COPY --from=builder /build/.venv /opt/venv
 COPY --from=builder /build/src /opt/todolist-mcp/src
