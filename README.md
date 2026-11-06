@@ -164,6 +164,10 @@ todolist-mcp/
 │           │   ├── __init__.py
 │           │   ├── models.py      # SQLAlchemy models
 │           │   └── repository.py  # TaskRepository implementation
+│           ├── radicale_adapter/  # Radicale (CalDAV) persistence
+│           │   ├── __init__.py
+│           │   ├── vtodo.py       # iCalendar VTODO serializer/parser
+│           │   └── repository.py  # TaskRepository implementation (CalDAV)
 │           └── auth_adapter/     # Authentication
 │               ├── __init__.py
 │               ├── models.py
@@ -201,6 +205,9 @@ todolist-mcp/
 |----------|-------------|---------|
 | `TODOLIST_MCP_DB_PATH` | Path to SQLite database | `~/.todolist-mcp/todolist.db` |
 | `TODOLIST_MCP_TOKEN_PATH` | Path to token file | `~/.todolist-mcp/token.txt` |
+| `TODOLIST_MCP_TRANSPORT` | Transport: `stdio`, `http` or `both` | `stdio` |
+| `TODOLIST_MCP_HTTP_PORT` | HTTP port for `http`/`both` transports | `8080` |
+| `TODOLIST_MCP_HOST` | Host IP to listen on | `127.0.0.1` (stdio) / `0.0.0.0` (http) |
 | `TODOLIST_MCP_STORAGE_BACKEND` | Storage backend: `sqlite` or `radicale` | `sqlite` |
 | `TODOLIST_MCP_RADICALE_URL` | Base URL of the Radicale server | `http://localhost:5232` |
 | `TODOLIST_MCP_RADICALE_USERNAME` | Radicale username (HTTP Basic auth) | _(none)_ |
@@ -253,6 +260,10 @@ uv run pytest tests/unit/application/test_create_task.py
 
 # Run integration tests
 uv run pytest tests/integration/
+
+# Run functional tests (Radicale functional tests need the radicale dev
+# dependency and are skipped automatically when it is not installed)
+uv run pytest tests/functional/
 
 # Run with coverage
 uv run pytest --cov=src/todolist_mcp --cov-report=term-missing
