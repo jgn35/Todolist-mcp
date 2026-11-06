@@ -11,7 +11,7 @@ A **Model Context Protocol (MCP)** server for task management. Built with Python
 - **Task Management**: Create, read, update, delete, and complete tasks
 - **Filtering**: List tasks by status, priority, or due date
 - **Authentication**: Secure token-based authentication
-- **Persistence**: SQLite database for data storage
+- **Persistence**: SQLite database by default, or a Radicale (CalDAV) server storing tasks as VTODO entries
 - **MCP Protocol**: Full MCP server implementation with 6 tools
 
 ### Available MCP Tools
@@ -201,6 +201,27 @@ todolist-mcp/
 |----------|-------------|---------|
 | `TODOLIST_MCP_DB_PATH` | Path to SQLite database | `~/.todolist-mcp/todolist.db` |
 | `TODOLIST_MCP_TOKEN_PATH` | Path to token file | `~/.todolist-mcp/token.txt` |
+| `TODOLIST_MCP_STORAGE_BACKEND` | Storage backend: `sqlite` or `radicale` | `sqlite` |
+| `TODOLIST_MCP_RADICALE_URL` | Base URL of the Radicale server | `http://localhost:5232` |
+| `TODOLIST_MCP_RADICALE_USERNAME` | Radicale username (HTTP Basic auth) | _(none)_ |
+| `TODOLIST_MCP_RADICALE_PASSWORD` | Radicale password (HTTP Basic auth) | _(none)_ |
+| `TODOLIST_MCP_RADICALE_COLLECTION` | Calendar collection holding the tasks | `todolist` |
+
+### Storing tasks on a Radicale server
+
+Set `TODOLIST_MCP_STORAGE_BACKEND=radicale` and point the server at your
+Radicale instance. Each task is stored as one VTODO (`UID`, `SUMMARY`,
+`DESCRIPTION`, `DUE`, `PRIORITY`, `STATUS`) inside the configured calendar
+collection, which is created automatically on startup if missing.
+
+```bash
+export TODOLIST_MCP_STORAGE_BACKEND=radicale
+export TODOLIST_MCP_RADICALE_URL=http://localhost:5232
+export TODOLIST_MCP_RADICALE_USERNAME=alice
+export TODOLIST_MCP_RADICALE_PASSWORD=secret
+export TODOLIST_MCP_RADICALE_COLLECTION=todolist
+uv run todolist-mcp
+```
 
 ### Token Storage
 
