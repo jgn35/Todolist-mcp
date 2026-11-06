@@ -19,12 +19,23 @@ mcp = FastMCP(name="todolist-mcp", version="0.1.0", auth=BearerTokenVerifier())
 _task_repository = None
 
 
+def _storage_backend() -> str:
+    """Return the configured storage backend ('sqlite' or 'radicale')."""
+    return os.environ.get("TODOLIST_MCP_STORAGE_BACKEND", "sqlite").lower()
+
+
 async def get_repository():
-    """Get or initialize the task repository."""
+    """Get or initialize the task repository for the configured storage backend."""
     global _task_repository
     if _task_repository is None:
-        from todolist_mcp.infrastructure.sqlite_adapter.repository import SQLiteTaskRepository
-        _task_repository = SQLiteTaskRepository()
+        if _storage_backend() == "radicale":
+            from todolist_mcp.infrastructure.radicale_adapter.repository import (
+                RadicaleTaskRepository,
+            )
+            _task_repository = RadicaleTaskRepository()
+        else:
+            from todolist_mcp.infrastructure.sqlite_adapter.repository import SQLiteTaskRepository
+            _task_repository = SQLiteTaskRepository()
         await _task_repository.initialize()
     return _task_repository
 
@@ -306,17 +317,19 @@ Examples:
 
     args = parser.parse_args()
 
-    # Ensure database directory exists
-    db_path = (
-        os.environ.get("TODOLIST_MCP_DB_PATH")
-        or os.path.expanduser("~/.todolist-mcp/todolist.db")
-    )
-    db_dir = os.path.dirname(db_path)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
+    # Ensure database directory exists (SQLite backend only)
+    if _storage_backend() != "radicale":
+        db_path = (
+            os.environ.get("TODOLIST_MCP_DB_PATH")
+            or os.path.expanduser("~/.todolist-mcp/todolist.db")
+        )
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
 
     print("Todolist MCP Server")
     print("=" * 40)
+    print(f"Storage backend: {_storage_backend()}")
     print(f"Transport mode: {args.transport}")
     if args.transport in ["http", "both"]:
         print(f"HTTP host: {args.host}")

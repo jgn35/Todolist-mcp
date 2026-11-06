@@ -29,3 +29,7 @@ class BearerTokenVerifier(TokenVerifier):
                 claims={},
             )
         return None
+
+    def close(self) -> None:
+        """Release the underlying token database handle."""
+        self._token_manager.close()
