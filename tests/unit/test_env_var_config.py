@@ -54,6 +54,7 @@ class TestDbPathEnvVar:
 
             tm = TokenManager()
             assert tm.db_path == temp_db_path
+            tm.close()
 
     def test_token_manager_env_var_empty_falls_back_to_default(self):
         with patch.dict(os.environ, {"TODOLIST_MCP_DB_PATH": ""}):
