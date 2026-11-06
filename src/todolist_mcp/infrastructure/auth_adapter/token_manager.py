@@ -129,3 +129,9 @@ class TokenManager:
         with self.Session() as session:
             session.execute(delete(AuthTokenModel))
             session.commit()
+
+    def close(self) -> None:
+        """Dispose the engine and release the database file handle."""
+        if self.engine is not None:
+            self.engine.dispose()
+            self.engine = None

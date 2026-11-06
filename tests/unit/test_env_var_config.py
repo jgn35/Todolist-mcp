@@ -26,6 +26,7 @@ class TestDbPathEnvVar:
             assert repo.db_path == temp_db_path
             await repo.initialize()
             assert os.path.exists(temp_db_path)
+            await repo.close()
 
     def test_repository_env_var_empty_falls_back_to_default(self):
         with patch.dict(os.environ, {"TODOLIST_MCP_DB_PATH": ""}):

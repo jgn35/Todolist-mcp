@@ -260,3 +260,12 @@ class SQLiteTaskRepository(TaskRepository):
             await session.commit()
 
             return deleted
+
+    async def close(self) -> None:
+        """Dispose engines and release the database file handle."""
+        if self.async_engine is not None:
+            await self.async_engine.dispose()
+            self.async_engine = None
+        if self.engine is not None:
+            self.engine.dispose()
+            self.engine = None

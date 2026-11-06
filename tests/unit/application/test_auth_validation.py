@@ -29,6 +29,8 @@ class TestBearerTokenVerifier(unittest.TestCase):
         self.verifier = BearerTokenVerifier(db_path=self.db_path)
 
     def tearDown(self):
+        self.token_manager.close()
+        self.verifier.close()
         self.loop.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
