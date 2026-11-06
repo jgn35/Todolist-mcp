@@ -16,6 +16,7 @@ dependencies = [
     "fastmcp",
     "sqlalchemy",
     "aiosqlite",
+    "greenlet",
     "pydantic",
     "fastapi",
     "uvicorn",
