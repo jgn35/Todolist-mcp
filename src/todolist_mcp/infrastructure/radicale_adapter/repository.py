@@ -17,20 +17,14 @@ from todolist_mcp.domain.repositories import TaskRepository
 from .vtodo import parse_vtodo_ical, task_to_vtodo_ical
 
 _DAV = "DAV:"
-_CALDAV = "urn:ietf:params:xml:ns:caldav"
 
-_CALENDAR_QUERY = f"""<?xml version="1.0" encoding="utf-8"?>
-<C:calendar-query xmlns:D="{_DAV}" xmlns:C="{_CALDAV}">
+_PROPFIND_BODY = f"""<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="{_DAV}">
   <D:prop>
+    <D:resourcetype/>
     <D:getetag/>
-    <C:calendar-data/>
   </D:prop>
-  <C:filter>
-    <C:comp-filter name="VCALENDAR">
-      <C:comp-filter name="VTODO"/>
-    </C:comp-filter>
-  </C:filter>
-</C:calendar-query>
+</D:propfind>
 """
 
 _PRIORITY_WEIGHT = {
@@ -151,9 +145,9 @@ class RadicaleTaskRepository(TaskRepository):
     ) -> tuple[list[Task], int]:
         """List tasks with optional filters (same semantics as the SQLite backend)."""
         status_code, body = await self._request(
-            "REPORT",
+            "PROPFIND",
             self.collection_url,
-            data=_CALENDAR_QUERY,
+            data=_PROPFIND_BODY,
             headers={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"},
         )
         if status_code not in (200, 207):
@@ -161,7 +155,16 @@ class RadicaleTaskRepository(TaskRepository):
                 f"Failed to list tasks from Radicale (HTTP {status_code})"
             )
 
-        tasks = self._parse_multistatus(body)
+        tasks: list[Task] = []
+        for href in self._parse_hrefs(body):
+            status_code, ical = await self._request(
+                "GET", f"{self.base_url}{href}"
+            )
+            if status_code != 200:
+                continue
+            task = parse_vtodo_ical(ical)
+            if task is not None:
+                tasks.append(task)
         filtered = [t for t in tasks if self._matches(t, status, priority, due_date)]
         total = len(filtered)
 
@@ -200,19 +203,27 @@ class RadicaleTaskRepository(TaskRepository):
         status, _ = await self._request("DELETE", self._resource_url(task_id))
         return status in (200, 204)
 
-    def _parse_multistatus(self, body: str) -> list[Task]:
-        """Extract every VTODO from a multistatus REPORT response."""
-        tasks: list[Task] = []
+    async def close(self) -> None:
+        """Close the HTTP session."""
+        if self._session is not None:
+            await self._session.close()
+            self._session = None
+
+    def _parse_hrefs(self, body: str) -> list[str]:
+        """Extract .ics child hrefs from a multistatus PROPFIND response."""
+        hrefs: list[str] = []
         try:
             root = ET.fromstring(body)
         except ET.ParseError:
-            return tasks
-        for calendar_data in root.iter(f"{{{_CALDAV}}}calendar-data"):
-            if calendar_data.text:
-                task = parse_vtodo_ical(calendar_data.text)
-                if task is not None:
-                    tasks.append(task)
-        return tasks
+            return hrefs
+        for response in root.iter(f"{{{_DAV}}}response"):
+            href = response.find(f"{{{_DAV}}}href")
+            if href is not None and href.text:
+                # Radicale returns hrefs with a trailing slash (e.g. "/cal/x.ics/")
+                path = href.text.strip().rstrip("/")
+                if path.endswith(".ics"):
+                    hrefs.append(path)
+        return hrefs
 
     def _matches(
         self,

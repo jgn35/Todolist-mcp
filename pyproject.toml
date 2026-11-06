@@ -58,3 +58,8 @@ testpaths = ["tests"]
 
 [tool.coverage.report]
 fail_under = 80
+
+[dependency-groups]
+dev = [
+    "radicale>=3.9.0",
+]

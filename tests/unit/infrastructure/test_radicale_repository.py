@@ -19,24 +19,21 @@ def _task(title="Task", **kwargs) -> Task:
     return Task(title=title, **kwargs)
 
 
-def _multistatus(*icals: str) -> str:
+def _propfind_multistatus(*hrefs: str) -> str:
     responses = "".join(
         f"""
   <D:response>
-    <D:href>/todolist/{i}.ics</D:href>
+    <D:href>{href}</D:href>
     <D:propstat>
-      <D:prop>
-        <D:getetag>"etag{i}"</D:getetag>
-        <C:calendar-data>{ical}</C:calendar-data>
-      </D:prop>
+      <D:prop><D:getetag>"etag"</D:getetag></D:prop>
       <D:status>HTTP/1.1 200 OK</D:status>
     </D:propstat>
   </D:response>"""
-        for i, ical in enumerate(icals)
+        for href in hrefs
     )
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
-        '<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+        '<D:multistatus xmlns:D="DAV:">'
         f"{responses}"
         "</D:multistatus>"
     )
@@ -172,8 +169,19 @@ class TestGetById:
 
 class TestListAll:
     def _repo_with_tasks(self, tasks: list[Task]) -> FakeRadicaleRepository:
-        body = _multistatus(*[task_to_vtodo_ical(t) for t in tasks])
-        return FakeRadicaleRepository(lambda m, u, d=None, h=None: (207, body))
+        # Real servers (Radicale) report hrefs with a trailing slash
+        store = {f"/todolist/{t.id}.ics/": task_to_vtodo_ical(t) for t in tasks}
+
+        def handler(method, url, data=None, headers=None):
+            if method == "PROPFIND":
+                return 207, _propfind_multistatus(*store.keys())
+            if method == "GET":
+                path = url.replace("http://localhost:5232", "").rstrip("/") + "/"
+                ical = store.get(path)
+                return (200, ical) if ical else (404, "")
+            return 500, ""
+
+        return FakeRadicaleRepository(handler)
 
     async def test_list_all_returns_everything_with_total(self):
         today = datetime.now().strftime("%Y-%m-%d")
@@ -188,9 +196,9 @@ class TestListAll:
         assert total == 2
         assert len(result) == 2
         method, url, data, headers = repo.calls[0]
-        assert method == "REPORT"
+        assert method == "PROPFIND"
         assert url == repo.collection_url
-        assert "calendar-query" in data
+        assert "propfind" in data
         assert headers["Depth"] == "1"
 
     async def test_filter_by_status(self):
